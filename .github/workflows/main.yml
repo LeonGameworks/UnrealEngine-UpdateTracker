@@ -90,8 +90,7 @@ jobs:
         run: |
           DISCUSSION_URL="https://github.com/${DISCUSSION_REPO}/discussions"
           {
-            echo ":memo: Unreal Engine Update Report が投稿されました！"
-            echo ""
+            echo ":memo: Daily Report が投稿されました！"
             echo "<${DISCUSSION_URL}|View on GitHub Discussions>"
           } > message.txt
 
