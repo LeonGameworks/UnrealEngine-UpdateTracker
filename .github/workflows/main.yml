@@ -75,61 +75,30 @@ jobs:
 
       - name: Install dependencies
         run: |
-          pip install -r requirements.txt
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
 
-      # ------------------------
-      # Unreal Engine Update Tracker 実行
-      # ------------------------
-      - name: Run Update Tracker
-        id: run_tracker
-        env:
-          COMMIT_SCAN_LIMIT: "6h"
-          REPORT_LANGUAGE: "Japanese"
-          DISCUSSION_CATEGORY: "Daily Reports"
-          GEMINI_MODEL: "gemini-1.5-flash"
-        run: |
-          echo "Running Update Tracker..."
-          python scripts/main.py > tracker_output.log 2>&1 || python main.py > tracker_output.log 2>&1
+      - name: Run update check script
+        run: python scripts/main.py
 
-          echo "----- Extract Discussion URL -----"
-          DISCUSSION_URL=$(grep -Eo 'https://github.com/.*/discussions/[0-9]+' tracker_output.log | tail -1)
-          echo "discussion_url=$DISCUSSION_URL" >> $GITHUB_OUTPUT
-          echo "Extracted URL: $DISCUSSION_URL"
-
-          echo "----- Extract Summary from Discussion Content -----"
-          # Discussions 投稿内容が "### " や "・" で始まる行を想定して抽出
-          SUMMARY=$(grep -E '^・|^- |^### ' tracker_output.log | head -10 || true)
-          echo "$SUMMARY" > summary.txt
-          cat summary.txt
-
-      # ------------------------
-      # Slack 通知
-      # ------------------------
-      - name: Notify Slack (summary + link)
-        if: success() && env.SLACK_WEBHOOK_URL != ''
+      # Slack通知
+      - name: Notify Slack (link only)
+        if: success() && (env.SLACK_WEBHOOK_URL != '')
         env:
           SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK_URL }}
-          DISCUSSION_URL: ${{ steps.run_tracker.outputs.discussion_url }}
+          DISCUSSION_REPO: ${{ env.DISCUSSION_REPO }}
         run: |
-          echo "Preparing Slack message..."
-          SUMMARY=$(cat summary.txt)
-          if [ -z "$SUMMARY" ]; then
-            SUMMARY="(No summary extracted)"
-          fi
-
-          # 実際の改行を使用（\nをエスケープしない）
+          DISCUSSION_URL="https://github.com/${DISCUSSION_REPO}/discussions"
           {
-            echo "🚀 Unreal Engine Update Report has been posted!"
+            echo ":memo: Unreal Engine Update Report が投稿されました！"
             echo ""
-            echo "$SUMMARY"
-            echo ""
-            echo "👉 <$DISCUSSION_URL|View full report on GitHub Discussions>"
+            echo "<${DISCUSSION_URL}|View on GitHub Discussions>"
           } > message.txt
 
           echo "--- Slack message preview ---"
           cat message.txt
 
-          echo "Sending message to Slack..."
+          # jq -Rs で message.txt をJSONに変換（改行保持）
           curl -X POST -H 'Content-type: application/json' \
-          --data "$(jq -Rs '{text: .}' message.txt)" \
-          "$SLACK_WEBHOOK_URL"
+            --data "$(jq -Rs '{text: .}' message.txt)" \
+            "$SLACK_WEBHOOK_URL"
