@@ -88,9 +88,11 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ env.SLACK_WEBHOOK_URL }}
           DISCUSSION_REPO: ${{ env.DISCUSSION_REPO }}
         run: |
-          DISCUSSION_URL="https://github.com/${DISCUSSION_REPO}/discussions"
-          MESSAGE=":rocket: Unreal Engine Update Report has been posted!\n<${DISCUSSION_URL}|View on GitHub Discussions>"
-          echo "Posting link to Slack: $DISCUSSION_URL"
+          echo "Preparing Slack message..."
+          SUMMARY=$(cat summary.txt || echo "(No summary available)")
+          MESSAGE=":rocket: Unreal Engine Update Report has been posted!\n\n${SUMMARY}\n\n👉 <${DISCUSSION_URL}|View full report on GitHub Discussions>"
+
+          echo "Sending message to Slack..."
           curl -X POST -H 'Content-type: application/json' \
           --data "$(jq -n --arg text "$MESSAGE" '{text: $text}')" \
           "$SLACK_WEBHOOK_URL"
